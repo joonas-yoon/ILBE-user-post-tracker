@@ -1,6 +1,5 @@
 package ilbe.tracer;
 
-import java.awt.Container;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.IOException;
@@ -9,7 +8,14 @@ import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 import javax.swing.JTextField;
+import javax.swing.JTree;
+import javax.swing.event.TreeSelectionEvent;
+import javax.swing.event.TreeSelectionListener;
+import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.DefaultTreeModel;
+import javax.swing.tree.TreePath;
 
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
@@ -17,44 +23,61 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
-public class tracer extends JFrame {
+public class tracer extends JFrame implements TreeSelectionListener {
 
 	private static final long serialVersionUID = 1573L;
-
+	
+	private static DefaultMutableTreeNode root = new DefaultMutableTreeNode("Root");
+    private static JTree tree = new JTree(root);
+    private JScrollPane scroll = new JScrollPane(tree);
+	private JPanel panel = new JPanel();
+	private JPanel resultPanel = new JPanel();
+	private JTextField resultTextField = new JTextField(10);
+	
 	public tracer(){
 		super("일베 유저 게시물 추적기");
+		//Container contentPane = this.getContentPane();
+		//panel.setLayout(new FlowLayout(FlowLayout.CENTER, 30, 40));
 		
-		setBounds(100, 100, 300, 200);
-		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-
-		Container contentPane = this.getContentPane();
-		JPanel pane = new JPanel();
-		final JButton buttonStart = new JButton("Start");
+		// 각 컴포넌트 선언 및 설정
+		final JButton buttonStart = new JButton("검색");		
+		JTextField textPeriod = new JTextField(20);
+		JLabel labelPeriod = new JLabel("해쉬값 입력");
 		buttonStart.setMnemonic('S');
-		
-		JTextField textPeriod = new JTextField(5);
-		JLabel labelPeriod = new JLabel("Input hash ");
-		pane.add(labelPeriod);
-		pane.add(textPeriod);
-		
 		buttonStart.addActionListener(new ActionListener() {
 			
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				System.out.println("OK! with "+ textPeriod.getText());
+				parse(textPeriod.getText());
 			}
 		});
-
-		pane.add(buttonStart);
-		contentPane.add(pane);
+		tree.setVisibleRowCount(10);
 		
-		//setSize(500, 500);
+		// 각 패널에 컴포넌트 장착
+		panel.add(labelPeriod);
+		panel.add(textPeriod);
+		panel.add(buttonStart);
+        resultPanel.add(new JLabel("선택 항목"));
+        resultPanel.add(resultTextField);
+		
+		// 프레임에 패널 장착
+		add(panel, "North");
+		add(scroll, "Center");
+		add(resultPanel, "South");
+		
+		// 프레임 기본설정
+		setBounds(100, 100, 300, 200);
+		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		setVisible(true);
+		pack();
+		setSize(400, 700);
+		//setResizable(false);
+		
+		tree.addTreeSelectionListener(this);
 	}
 	
 	public static void main(String[] args) {
 		JFrame t = new tracer();
-		parse("143c23c425cafb37cd0c704309a53eedb79232dfad91974c6fb2c573c665bef2");
 	}
 	
 	public static void parse(String userHash) {
@@ -71,7 +94,7 @@ public class tracer extends JFrame {
 		for(int i=0; i<boardUrls.length; ++i){
 			String findQuery = "index.php?mid="+ boardUrls[i] +"&search_target=nick_name&search_keyword="+searchNick+"&target_srl=" + userHash;
 			conn = Jsoup.connect("http://www.ilbe.com/"+findQuery);
-			conn.timeout(5000);
+			conn.timeout(1000);
 			
 			try {
 				doc = conn.get();
@@ -91,14 +114,39 @@ public class tracer extends JFrame {
 			
 			if(articleList.isEmpty()) continue;
 			System.out.println(">> "+ boardNames[i] +" 게시판");
-			
+
+            DefaultMutableTreeNode newBrach = new DefaultMutableTreeNode(boardNames[i] +" 게시판");
+            root.add(newBrach);
+            
 			for(Element elmt : articleList){
 				String num = elmt.select(".num").text();
 				String title = elmt.select(".title").text();
 				String author = elmt.select(".author").text();
 				String date = elmt.select(".date").text();
-				System.out.println("[ "+ num +" "+ title +" "+ author +" "+ date +" ]");
+				
+	            newBrach.add(new DefaultMutableTreeNode(title));
 			}
+
+			DefaultTreeModel model = (DefaultTreeModel)tree.getModel();
+			
+            //변경된 내용을 재구성 한다
+            model.reload(newBrach);
 		}
+		
+		tree.expandRow(0);
+	}
+
+	@Override
+	public void valueChanged(TreeSelectionEvent e) {
+		if(e.getSource() == tree)
+	    {
+	        DefaultMutableTreeNode selNode = (DefaultMutableTreeNode)tree.getLastSelectedPathComponent();
+	        if(selNode == null)
+	        {
+	            //아무 항목도 선택되지 않으면 종료한다
+	            return;
+	        }
+	        resultTextField.setText(selNode.toString());
+	    }
 	}
 }
