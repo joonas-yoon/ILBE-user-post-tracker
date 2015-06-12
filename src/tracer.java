@@ -36,8 +36,6 @@ public class tracer extends JFrame implements TreeSelectionListener {
 	
 	public tracer(){
 		super("일베 유저 게시물 추적기");
-		//Container contentPane = this.getContentPane();
-		//panel.setLayout(new FlowLayout(FlowLayout.CENTER, 30, 40));
 		
 		// 각 컴포넌트 선언 및 설정
 		final JButton buttonStart = new JButton("검색");		
@@ -71,7 +69,7 @@ public class tracer extends JFrame implements TreeSelectionListener {
 		setVisible(true);
 		pack();
 		setSize(400, 700);
-		//setResizable(false);
+		setResizable(false);
 		
 		tree.addTreeSelectionListener(this);
 	}
@@ -94,7 +92,8 @@ public class tracer extends JFrame implements TreeSelectionListener {
 		for(int i=0; i<boardUrls.length; ++i){
 			String findQuery = "index.php?mid="+ boardUrls[i] +"&search_target=nick_name&search_keyword="+searchNick+"&target_srl=" + userHash;
 			conn = Jsoup.connect("http://www.ilbe.com/"+findQuery);
-			conn.timeout(1000);
+			// timeout에 대해 알아볼 것
+			//conn.timeout(1000);
 			
 			try {
 				doc = conn.get();
@@ -138,11 +137,9 @@ public class tracer extends JFrame implements TreeSelectionListener {
 
 	@Override
 	public void valueChanged(TreeSelectionEvent e) {
-		if(e.getSource() == tree)
-		{
+		if(e.getSource() == tree) {
 			DefaultMutableTreeNode selNode = (DefaultMutableTreeNode)tree.getLastSelectedPathComponent();
-			if(selNode == null)
-			{
+			if(selNode == null) {
 				//아무 항목도 선택되지 않으면 종료한다
 				return;
 			}
