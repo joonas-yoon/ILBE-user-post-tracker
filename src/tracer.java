@@ -28,8 +28,8 @@ public class tracer extends JFrame implements TreeSelectionListener {
 	private static final long serialVersionUID = 1573L;
 	
 	private static DefaultMutableTreeNode root = new DefaultMutableTreeNode("Root");
-    private static JTree tree = new JTree(root);
-    private JScrollPane scroll = new JScrollPane(tree);
+	private static JTree tree = new JTree(root);
+	private JScrollPane scroll = new JScrollPane(tree);
 	private JPanel panel = new JPanel();
 	private JPanel resultPanel = new JPanel();
 	private JTextField resultTextField = new JTextField(10);
@@ -57,8 +57,8 @@ public class tracer extends JFrame implements TreeSelectionListener {
 		panel.add(labelPeriod);
 		panel.add(textPeriod);
 		panel.add(buttonStart);
-        resultPanel.add(new JLabel("선택 항목"));
-        resultPanel.add(resultTextField);
+		resultPanel.add(new JLabel("선택 항목"));
+		resultPanel.add(resultTextField);
 		
 		// 프레임에 패널 장착
 		add(panel, "North");
@@ -114,9 +114,9 @@ public class tracer extends JFrame implements TreeSelectionListener {
 			
 			if(articleList.isEmpty()) continue;
 			System.out.println(">> "+ boardNames[i] +" 게시판");
-
-            DefaultMutableTreeNode newBrach = new DefaultMutableTreeNode(boardNames[i] +" 게시판");
-            root.add(newBrach);
+			
+			DefaultMutableTreeNode newBrach = new DefaultMutableTreeNode(boardNames[i] +" 게시판");
+			root.add(newBrach);
             
 			for(Element elmt : articleList){
 				String num = elmt.select(".num").text();
@@ -124,13 +124,13 @@ public class tracer extends JFrame implements TreeSelectionListener {
 				String author = elmt.select(".author").text();
 				String date = elmt.select(".date").text();
 				
-	            newBrach.add(new DefaultMutableTreeNode(title));
+				newBrach.add(new DefaultMutableTreeNode(title));
 			}
 
 			DefaultTreeModel model = (DefaultTreeModel)tree.getModel();
-			
-            //변경된 내용을 재구성 한다
-            model.reload(newBrach);
+		
+			//변경된 내용을 재구성 한다
+			model.reload(newBrach);
 		}
 		
 		tree.expandRow(0);
@@ -139,14 +139,14 @@ public class tracer extends JFrame implements TreeSelectionListener {
 	@Override
 	public void valueChanged(TreeSelectionEvent e) {
 		if(e.getSource() == tree)
-	    {
-	        DefaultMutableTreeNode selNode = (DefaultMutableTreeNode)tree.getLastSelectedPathComponent();
-	        if(selNode == null)
-	        {
-	            //아무 항목도 선택되지 않으면 종료한다
-	            return;
-	        }
-	        resultTextField.setText(selNode.toString());
-	    }
+		{
+			DefaultMutableTreeNode selNode = (DefaultMutableTreeNode)tree.getLastSelectedPathComponent();
+			if(selNode == null)
+			{
+				//아무 항목도 선택되지 않으면 종료한다
+				return;
+			}
+			resultTextField.setText(selNode.toString());
+		}
 	}
 }
