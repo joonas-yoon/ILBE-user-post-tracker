@@ -4,12 +4,7 @@ import java.awt.Dimension;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.net.URISyntaxException;
 
 import javax.swing.JButton;
 import javax.swing.JFrame;
@@ -24,16 +19,11 @@ import javax.swing.event.TreeSelectionListener;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 
-import org.jsoup.Connection;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
-
 public class tracer extends JFrame implements TreeSelectionListener {
 
 	private static final long serialVersionUID = 1573L;
 
+	// 게시물 트리 구성 요소
 	private static DefaultMutableTreeNode root = new DefaultMutableTreeNode(
 			"게시판 목록");
 	private static JTree tree = new JTree(root);
@@ -42,11 +32,11 @@ public class tracer extends JFrame implements TreeSelectionListener {
 	private static JPanel resultPanel = new JPanel();
 	private static JLabel resultLabel = new JLabel("선택한 항목이 없습니다.");
 	private static JButton resultButton = new JButton("이동");
+	
+	private String selectDocumentSrl = null;
 
 	public tracer() {
-		super("일베 유저 게시물 추적기");
-		// Container contentPane = this.getContentPane();
-		// panel.setLayout(new FlowLayout(FlowLayout.CENTER, 30, 40));
+		super("일간 베스트 유저 게시물 추적기");
 
 		// 각 컴포넌트 선언 및 설정
 		final JButton buttonStart = new JButton("검색");
@@ -63,6 +53,12 @@ public class tracer extends JFrame implements TreeSelectionListener {
 				} else {
 					parse(text);
 				}
+			}
+		});
+		resultButton.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				openBrower(selectDocumentSrl);
 			}
 		});
 		resultButton.setEnabled(false);
@@ -120,70 +116,22 @@ public class tracer extends JFrame implements TreeSelectionListener {
 		String findSiteUrl = "http://www.ilbe.com/";
 		resultButton.setEnabled(false);
 
-		ExecutorService executorService = Executors.newFixedThreadPool(5);
-		List<Future<Void>> handles = new ArrayList<Future<Void>>();
-		Future<Void> handle;
-
 		for (int i = 0; i < boardUrls.length; ++i) {
 			String findQuery = "index.php?mid=" + boardUrls[i]
 					+ "&search_target=nick_name&search_keyword=" + searchNick
 					+ "&target_srl=" + userHash;
-			String boardName = boardNames[i];
-			handle = executorService.submit(new Callable<Void>() {
-				public Void call() throws Exception {
 
-					Document doc = null;
-					Connection conn = Jsoup.connect(findSiteUrl + findQuery);
-					// conn.timeout(3000);
-
-					try {
-						doc = conn.get();
-					} catch (IOException e1) {
-						// e1.printStackTrace();
-					}
-
-					Elements articleList = doc
-							.select(".boardList .bg1, .boardList .bg2");
-
-					if (articleList.isEmpty())
-						return null;
-
-					System.out.println(">> " + boardName + " 게시판");
-
-					DefaultMutableTreeNode newBrach = new DefaultMutableTreeNode(
-							boardName + " 게시판");
-					root.add(newBrach);
-
-					for (Element elmt : articleList) {
-						// String num = elmt.select(".num").text();
-						String title = elmt.select(".title").text();
-						String author = elmt.select(".author").text();
-						String date = elmt.select(".date").text();
-						String docSrl = elmt.select(".title a").attr("href");
-						// System.out.println(docSrl);
-
-						ArticleInfo article = new ArticleInfo(title, author,
-								date);
-						article.setUrl(findSiteUrl + docSrl);
-						newBrach.add(new DefaultMutableTreeNode(article));
-					}
-
-					// 변경된 내용을 재구성 한다
-					model.reload(newBrach);
-					return null;
+			loadThread t = new loadThread(root, model);
+			t.setUrlInfo(findSiteUrl, findQuery, boardNames[i]);
+			synchronized (t) {
+				t.start();
+				try {
+					t.join();
+				} catch (InterruptedException e) {
+					e.printStackTrace();
 				}
-			});
-			handles.add(handle);
-		}
-
-		for (Future<Void> h : handles) {
-			try {
-				h.get();
-			} catch (Exception ex) {
-				// ex.printStackTrace();
 			}
 		}
-		executorService.shutdownNow();
 
 		tree.expandRow(0);
 		model.reload();
@@ -200,8 +148,11 @@ public class tracer extends JFrame implements TreeSelectionListener {
 
 	@Override
 	public void valueChanged(TreeSelectionEvent e) {
+		selectDocumentSrl = null;
 		resultLabel.setText("선택한 항목이 없습니다.");
 		resultButton.setEnabled(false);
+		if (e.getSource() == root)
+			return;
 		if (e.getSource() == tree) {
 			DefaultMutableTreeNode selNode = (DefaultMutableTreeNode) tree
 					.getLastSelectedPathComponent();
@@ -211,8 +162,26 @@ public class tracer extends JFrame implements TreeSelectionListener {
 			}
 			ArticleInfo article = (ArticleInfo) selNode.getUserObject();
 			resultLabel.setText(article.toString());
-			System.out.println(article.getUrl());
+			selectDocumentSrl = article.getUrl();
+			System.out.println(selectDocumentSrl);
 			resultButton.setEnabled(true);
 		}
 	}
+	
+	public void openBrower(String url)  {
+        java.awt.Desktop desktop = java.awt.Desktop.getDesktop();
+        if( !desktop.isSupported( java.awt.Desktop.Action.BROWSE ) ) {
+            System.err.println( "Desktop doesn't support web browser action" );
+        }
+        try {
+            java.net.URI uri = new java.net.URI( url );
+            desktop.browse( uri );
+        }        
+        catch (IOException _e) {
+            System.err.println( _e.getMessage() );
+        } 
+        catch (URISyntaxException _e) {
+            System.err.println( _e.getMessage() );
+        }
+    }
 }
