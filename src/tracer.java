@@ -1,5 +1,6 @@
 package ilbe.tracer;
 
+import java.awt.Dimension;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.IOException;
@@ -15,7 +16,6 @@ import javax.swing.event.TreeSelectionEvent;
 import javax.swing.event.TreeSelectionListener;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
-import javax.swing.tree.TreePath;
 
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
@@ -27,15 +27,18 @@ public class tracer extends JFrame implements TreeSelectionListener {
 
 	private static final long serialVersionUID = 1573L;
 	
-	private static DefaultMutableTreeNode root = new DefaultMutableTreeNode("Root");
-	private static JTree tree = new JTree(root);
-	private JScrollPane scroll = new JScrollPane(tree);
-	private JPanel panel = new JPanel();
-	private JPanel resultPanel = new JPanel();
-	private JTextField resultTextField = new JTextField(10);
+	private static DefaultMutableTreeNode root = new DefaultMutableTreeNode("게시판 목록");
+    private static JTree tree = new JTree(root);
+    private static JScrollPane scroll = new JScrollPane(tree);
+	private static JPanel panel = new JPanel();
+	private static JPanel resultPanel = new JPanel();
+	private static JLabel resultLabel = new JLabel("선택한 항목이 없습니다.");
+	private static JButton resultButton = new JButton("이동");
 	
 	public tracer(){
 		super("일베 유저 게시물 추적기");
+		//Container contentPane = this.getContentPane();
+		//panel.setLayout(new FlowLayout(FlowLayout.CENTER, 30, 40));
 		
 		// 각 컴포넌트 선언 및 설정
 		final JButton buttonStart = new JButton("검색");		
@@ -49,14 +52,15 @@ public class tracer extends JFrame implements TreeSelectionListener {
 				parse(textPeriod.getText());
 			}
 		});
+		resultButton.setEnabled(false);
 		tree.setVisibleRowCount(10);
 		
 		// 각 패널에 컴포넌트 장착
 		panel.add(labelPeriod);
 		panel.add(textPeriod);
 		panel.add(buttonStart);
-		resultPanel.add(new JLabel("선택 항목"));
-		resultPanel.add(resultTextField);
+        resultPanel.add(resultLabel);
+        resultPanel.add(resultButton);
 		
 		// 프레임에 패널 장착
 		add(panel, "North");
@@ -68,8 +72,8 @@ public class tracer extends JFrame implements TreeSelectionListener {
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		setVisible(true);
 		pack();
-		setSize(400, 700);
-		setResizable(false);
+		setSize(400, 500);
+		setMinimumSize(new Dimension(400, 400));
 		
 		tree.addTreeSelectionListener(this);
 	}
@@ -88,12 +92,16 @@ public class tracer extends JFrame implements TreeSelectionListener {
 		
 		Connection conn;
 		Document doc = null;
+
+		root.removeAllChildren();		
+		DefaultTreeModel model = (DefaultTreeModel)tree.getModel();
+		String findSiteUrl = "http://www.ilbe.com/";
+		resultButton.setEnabled(false);
 		
-		for(int i=0; i<boardUrls.length; ++i){
+		for(int i=0; i < boardUrls.length; ++i){
 			String findQuery = "index.php?mid="+ boardUrls[i] +"&search_target=nick_name&search_keyword="+searchNick+"&target_srl=" + userHash;
-			conn = Jsoup.connect("http://www.ilbe.com/"+findQuery);
-			// timeout에 대해 알아볼 것
-			//conn.timeout(1000);
+			conn = Jsoup.connect(findSiteUrl+findQuery);
+			conn.timeout(3000);
 			
 			try {
 				doc = conn.get();
@@ -104,32 +112,36 @@ public class tracer extends JFrame implements TreeSelectionListener {
 			Elements articleList = doc.select(".boardList .bg1, .boardList .bg2");
 
 			// We have to find better solution for delay pre-working
+			/*
 			try {
 				Thread.sleep(1000);
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
-			
+			*/
+
 			if(articleList.isEmpty()) continue;
 			System.out.println(">> "+ boardNames[i] +" 게시판");
 			
-			DefaultMutableTreeNode newBrach = new DefaultMutableTreeNode(boardNames[i] +" 게시판");
-			root.add(newBrach);
+            DefaultMutableTreeNode newBrach = new DefaultMutableTreeNode(boardNames[i] +" 게시판");
+            root.add(newBrach);
             
 			for(Element elmt : articleList){
-				String num = elmt.select(".num").text();
+				//String num = elmt.select(".num").text();
 				String title = elmt.select(".title").text();
 				String author = elmt.select(".author").text();
 				String date = elmt.select(".date").text();
+				String docSrl = elmt.select(".title a").attr("href");
+				System.out.println(docSrl);
 				
-				newBrach.add(new DefaultMutableTreeNode(title));
+				ArticleInfo article = new ArticleInfo(title, author, date);
+				article.setUrl(findSiteUrl+docSrl);
+				newBrach.add(new DefaultMutableTreeNode(article));
 			}
-
-			DefaultTreeModel model = (DefaultTreeModel)tree.getModel();
-		
-			//변경된 내용을 재구성 한다
-			model.reload(newBrach);
+			
+            //변경된 내용을 재구성 한다
+            model.reload(newBrach);
 		}
 		
 		tree.expandRow(0);
@@ -137,13 +149,20 @@ public class tracer extends JFrame implements TreeSelectionListener {
 
 	@Override
 	public void valueChanged(TreeSelectionEvent e) {
-		if(e.getSource() == tree) {
+		resultLabel.setText("선택한 항목이 없습니다.");
+		resultButton.setEnabled(false);
+		if(e.getSource() == tree)
+		{
 			DefaultMutableTreeNode selNode = (DefaultMutableTreeNode)tree.getLastSelectedPathComponent();
-			if(selNode == null) {
+			if(selNode == null || selNode.isLeaf() == false)
+			{
 				//아무 항목도 선택되지 않으면 종료한다
 				return;
 			}
-			resultTextField.setText(selNode.toString());
+			ArticleInfo article = (ArticleInfo) selNode.getUserObject();
+			resultLabel.setText(article.toString());
+			System.out.println(article.getUrl());
+			resultButton.setEnabled(true);
 		}
 	}
 }
